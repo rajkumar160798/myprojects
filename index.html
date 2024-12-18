@@ -7,200 +7,157 @@
     <!-- Favicon -->
     <link rel="icon" type="image/vnd.microsoft.icon" href="https://www.aetna.com/content/dam/aetna/asset-libraries/logos/favicon-violet-heart-32x32.png">
 
-   <style>
-       /* General Styling */
-       body {
-           margin: 0;
-           font-family: Arial, sans-serif;
-           background: linear-gradient(135deg, #e3f2fd, #bbdefb); /* Light blue gradient */
-       }
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #d1c4e9); /* Light blue gradient */
+        }
 
-       /* Header */
-       .header {
-           background-color: #2196f3; /* Blue header */
-           color: white;
-           padding: 1rem;
-           position: fixed;
-           top: 0;
-           left: 0;
-           width: 100%;
-           z-index: 1000;
-           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-       }
+        .header {
+            background-color: #6b2d87;
+            color: white;
+            padding: 1rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
 
-       .header h1 {
-           margin: 0;
-           font-size: 1.5rem;
-       }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
 
-       /* Content Section */
-       .upload-container, .table-container {
-           background-color: #f0f8ff;
-           padding: 2rem;
-           border-radius: 10px;
-           max-width: 800px;
-           margin: 100px auto 50px; /* Adjusted for fixed header */
-           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-           text-align: center;
-       }
+        .upload-container, .table-container, .column-container {
+            background-color: #f4f3f8;
+            padding: 2rem;
+            border-radius: 10px;
+            max-width: 800px;
+            margin: 100px auto 50px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
 
-       .upload-container h2, .table-container h2 {
-           color: #0d47a1; /* Blue heading text */
-       }
+        .upload-container h2, .table-container h2, .column-container h2 {
+            color: #7d3f98;
+        }
 
-       /* Drag and Drop */
-       .drop-zone {
-           border: 2px dashed #0d47a1; /* Blue border */
-           border-radius: 10px;
-           padding: 1rem;
-           color: #0d47a1;
-           cursor: pointer;
-           background-color: #ffffff;
-           margin-bottom: 1rem;
-       }
+        .drop-zone {
+            border: 2px dashed #7d3f98;
+            border-radius: 10px;
+            padding: 2rem;
+            cursor: pointer;
+            background-color: #ffffff;
+            margin-bottom: 1rem;
+        }
 
-       .drop-zone:hover {
-           background-color: #e3f2fd;
-       }
+        .drop-zone:hover {
+            background-color: #f8e1ff;
+        }
 
-       .btn-upload {
-           background-color: #0d47a1;
-           color: white;
-           padding: 0.5rem 1.5rem;
-           border: none;
-           border-radius: 5px;
-           font-size: 1rem;
-           margin-top: 1rem;
-           cursor: pointer;
-       }
+        .btn-submit, .btn-select-columns {
+            background-color: #7d3f98;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
 
-       .btn-upload:hover {
-           background-color: #1565c0;
-       }
+        .btn-submit:hover, .btn-select-columns:hover {
+            background-color: #6b2d87;
+        }
 
-       .success-message {
-           color: green;
-           font-size: 1rem;
-           margin-top: 1rem;
-           display: none;
-       }
+        footer {
+            background-color: #4d0f68ea;
+            color: white;
+            text-align: center;
+            padding: 1rem;
+            position: relative;
+            bottom: 0;
+            width: 100%;
+        }
 
-       .file-selected {
-           color: #0d47a1;
-           font-size: 1rem;
-           margin-top: 10px;
-           display: block;
-       }
+        .hidden {
+            display: none;
+        }
 
-       .hidden { display: none; }
-
-       footer {
-           background-color: #1565c0; /* Blue footer */
-           color: white;
-           text-align: center;
-           padding: 1rem;
-           position: relative;
-           bottom: 0;
-           width: 100%;
-           font-size: 0.9rem;
-       }
-
-       body {
-           display: flex;
-           flex-direction: column;
-           min-height: 100vh;
-       }
-
-       main {
-           flex: 1;
-       }
-   </style>
+        .column-checkbox {
+            text-align: left;
+            margin: 1rem 0;
+        }
+    </style>
 </head>
-
 <body>
-   <!-- Header Section -->
-   <div class="header">
-       <h1>AH Reports Web Application - Upload Files and Create Tables</h1>
-   </div>
+    <!-- Header Section -->
+    <div class="header">
+        <h1>AH Reports Web Application - Upload Files and Create Tables</h1>
+    </div>
 
-<main>
-<!-- Main Content -->
-   <div class="upload-container">
-       <h2>Upload Files to GCS Bucket</h2>
-       <p>Drag & Drop your file here or click to upload into the GCS bucket.</p>
-       
-       <!-- File upload form with drag and drop -->
-       <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
-           <div class="drop-zone" id="dropZone">
-               <p id="dropText">Drag & Drop File Here or Click to Upload</p>
-               <input type="file" id="file" name="file" style="display: none;">
-               <span id="fileName" class="file-selected hidden"></span>
-           </div>
-           <button type="submit" class="btn-upload">Upload</button>
-       </form>
-       <div id="successMessage" class="success-message">Upload Successful!</div>
-   </div>
+    <!-- File Upload Section -->
+    <div class="upload-container">
+        <h2>Upload Files to GCS Bucket</h2>
+        <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
+            <div class="drop-zone" id="dropZone">
+                <p>Drag & Drop File Here or Click to Upload</p>
+                <input type="file" id="file" name="file" style="display: none;" required>
+            </div>
+            <button type="submit" class="btn-submit">Upload</button>
+        </form>
+    </div>
 
-   <!-- Create/Replace BigQuery Table -->
-   <div class="table-container">
-       <h2>Create/Replace BigQuery Table</h2>
-       <form th:action="@{/create-table}" method="post">
-           <label for="dataset" class="form-label">Dataset Name</label>
-           <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
-           <label for="table" class="form-label">Table Name</label>
-           <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
-           <button type="submit" class="btn btn-success">Create Table</button>
-       </form>
-       <div th:if="${message}" class="alert alert-info mt-4" th:text="${message}"></div>
-   </div>
-</main>
+    <!-- Create/Replace BigQuery Table Section -->
+    <div class="table-container">
+        <h2>Create/Replace BigQuery Table</h2>
+        <form th:action="@{/create-table}" method="post">
+            <input type="hidden" name="fileName" th:value="${uploadedFileName}">
+            <label for="dataset" class="form-label">Dataset Name</label>
+            <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
+            <label for="table" class="form-label">Table Name</label>
+            <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
 
-   <!-- Footer Section -->
-   <footer>
-       <p>&copy; 2024</p>
-   </footer>
+            <!-- Button to show column selection -->
+            <button type="button" id="selectColumnsBtn" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
 
-<!-- JavaScript -->
-   <script>
-       // Drag and Drop functionality
-       const dropZone = document.getElementById('dropZone');
-       const fileInput = document.getElementById('file');
-       const fileNameDisplay = document.getElementById('fileName');
-       const dropText = document.getElementById('dropText');
+            <!-- Column Selection Section -->
+            <div id="columnSection" class="hidden">
+                <div th:each="column : ${columns}">
+                    <label>
+                        <input type="checkbox" th:value="${column}" name="columns" class="form-check-input">
+                        <span th:text="${column}"></span>
+                    </label>
+                </div>
+            </div>
 
-       dropZone.addEventListener('click', () => fileInput.click());
-       dropZone.addEventListener('dragover', (e) => {
-           e.preventDefault();
-           dropZone.style.backgroundColor = '#e3f2fd';
-       });
-       dropZone.addEventListener('dragleave', () => {
-           dropZone.style.backgroundColor = '#ffffff';
-       });
-       dropZone.addEventListener('drop', (e) => {
-           e.preventDefault();
-           fileInput.files = e.dataTransfer.files;
-           displayFileName(fileInput.files[0]?.name);
-       });
+            <!-- Create Table Button -->
+            <button type="submit" class="btn-submit mt-3">Create Table</button>
+        </form>
+    </div>
 
-       fileInput.addEventListener('change', () => {
-           displayFileName(fileInput.files[0]?.name);
-       });
+    <!-- Footer Section -->
+    <footer>
+        <p>&copy; 2024 AH Reports Inc.</p>
+    </footer>
 
-       function displayFileName(fileName) {
-           if (fileName) {
-               fileNameDisplay.textContent = fileName;
-               fileNameDisplay.classList.remove('hidden');
-               dropText.classList.add('hidden');
-               dropZone.style.border = '2px solid #0d47a1';
-           }
-       }
+    <!-- JavaScript -->
+    <script>
+        function toggleColumnSelection() {
+            const columnSection = document.getElementById('columnSection');
+            const selectColumnsBtn = document.getElementById('selectColumnsBtn');
 
-       // Show success message after upload
-       document.getElementById('uploadForm').addEventListener('submit', function (e) {
-           setTimeout(() => {
-               document.getElementById('successMessage').style.display = 'block';
-           }, 1000);
-       });
-   </script>
+            if (columnSection.classList.contains('hidden')) {
+                columnSection.classList.remove('hidden');
+                selectColumnsBtn.textContent = "Hide Column Selection";
+            } else {
+                columnSection.classList.add('hidden');
+                selectColumnsBtn.textContent = "Select Specific Columns";
+            }
+        }
+    </script>
 </body>
 </html>
