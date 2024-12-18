@@ -102,7 +102,7 @@
     <!-- File Upload Section -->
     <div class="upload-container">
         <h2>Upload Files to GCS Bucket</h2>
-        <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
+        <form method="POST" enctype="multipart/form-data" action="/upload" id="uploadForm">
             <div class="drop-zone" id="dropZone">
                 <p>Drag & Drop File Here or Click to Upload</p>
                 <input type="file" id="file" name="file" style="display: none;" required>
@@ -114,8 +114,8 @@
     <!-- Create/Replace BigQuery Table Section -->
     <div class="table-container">
         <h2>Create/Replace BigQuery Table</h2>
-        <form th:action="@{/create-table}" method="post">
-            <input type="hidden" name="fileName" th:value="${uploadedFileName}">
+        <form action="/create-table" method="POST">
+            <input type="hidden" name="fileName" id="uploadedFileName">
             <label for="dataset" class="form-label">Dataset Name</label>
             <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
             <label for="table" class="form-label">Table Name</label>
@@ -126,12 +126,8 @@
 
             <!-- Column Selection Section -->
             <div id="columnSection" class="hidden">
-                <div th:each="column : ${columns}">
-                    <label>
-                        <input type="checkbox" th:value="${column}" name="columns" class="form-check-input">
-                        <span th:text="${column}"></span>
-                    </label>
-                </div>
+                <!-- Placeholder for dynamically generated columns -->
+                <div id="columnsPlaceholder"></div>
             </div>
 
             <!-- Create Table Button -->
@@ -146,6 +142,46 @@
 
     <!-- JavaScript -->
     <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('file');
+        const uploadedFileNameInput = document.getElementById('uploadedFileName');
+
+        // Open file dialog on drop zone click
+        dropZone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Highlight the drop zone on drag over
+        dropZone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropZone.style.backgroundColor = '#f8e1ff';
+        });
+
+        // Remove highlight on drag leave
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.backgroundColor = '#ffffff';
+        });
+
+        // Handle file drop
+        dropZone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropZone.style.backgroundColor = '#ffffff';
+
+            const files = event.dataTransfer.files;
+            if (files.length) {
+                fileInput.files = files; // Assign dropped files to the input
+                uploadedFileNameInput.value = files[0].name; // Update hidden input for file name
+            }
+        });
+
+        // Show file name after selection
+        fileInput.addEventListener('change', () => {
+            const fileName = fileInput.files[0]?.name || '';
+            dropZone.innerHTML = fileName 
+                ? `<p>Selected File: ${fileName}</p>`
+                : `<p>Drag & Drop File Here or Click to Upload</p>`;
+        });
+
         function toggleColumnSelection() {
             const columnSection = document.getElementById('columnSection');
             const selectColumnsBtn = document.getElementById('selectColumnsBtn');
