@@ -34,7 +34,7 @@
        .drop-zone {
            border: 2px dashed #7d3f98;
            border-radius: 10px;
-           padding: 2rem;
+           padding: 1rem; /* Decreased height */
            color: #7d3f98;
            cursor: pointer;
            background-color: #ffffff;
@@ -81,15 +81,26 @@
            color: white;
            text-align: center;
            padding: 1rem;
-           position: absolute;
+           position: relative;
            bottom: 0;
            width: 100%;
            font-size: 0.9rem;
+       }
+
+       body {
+           display: flex;
+           flex-direction: column;
+           min-height: 100vh;
+       }
+
+       main {
+           flex: 1;
        }
    </style>
 </head>
 
 <body>
+<main>
 <!-- Main Content -->
    <div class="upload-container">
        <h2>Upload Files to GCS Bucket</h2>
@@ -119,6 +130,7 @@
        </form>
        <div th:if="${message}" class="alert alert-info mt-4" th:text="${message}"></div>
    </div>
+</main>
 
    <!-- Footer Section -->
    <footer>
