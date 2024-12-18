@@ -7,11 +7,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.nio.file.StandardCopyOption;
-
+import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
- 
+import javax.xml.validation.Schema;
 
 import org.springframework.core.io.Resource;
 
@@ -216,54 +216,37 @@ public class FileSystemStorageService implements StorageService {
     }
 
     @Override
-
-    public void createOrReplaceBigQueryTable(String fileName, String datasetName , String tableName){
-
+    public void createOrReplaceBigQueryTableWithColumns(String fileName, String datasetName, String tableName, List<String> selectedColumns) {
         String projectId = "anbc-hcb-dev";
-
         String gcsFilePath = "gs://" + bucketName + "/" + fileName;
 
+        // Define table schema based on selected columns
+    Schema schema = Schema.of(selectedColumns.stream()
+            .map(column -> Field.of(column, StandardSQLTypeName.STRING)) // Assuming all columns are STRING
+            .collect(Collectors.toList()));
 
- 
+    TableId tableId = TableId.of(projectId, datasetName, tableName);
 
-        TableId tableId = TableId.of(projectId,datasetName, tableName);
+    LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, gcsFilePath)
+            .setSchema(schema)
+            .setFormatOptions(FormatOptions.csv())
+            .setAutodetect(false) // Schema will be explicitly defined
+            .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
+            .build();
 
-        LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId,gcsFilePath)
+    try {
+        Job job = bigQuery.create(JobInfo.of(loadConfig));
+        job = job.waitFor();
 
-                .setFormatOptions(FormatOptions.csv())
-
-                .setAutodetect(true)
-
-                .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
-
-                .build();
-
-        try {
-
-            Job job = bigQuery.create(JobInfo.of(loadConfig));
-
-            job = job.waitFor();
-
-
- 
-
-            if(job.isDone()){
-
-                System.out.println("Table created/replaced succesfully:" + projectId +"."+ datasetName + "." + tableName );
-
-            } else {
-
-                throw new RuntimeException ("Bigquery create table job failed:" + job.getStatus().getError());
-
-                }
-
-            } catch (InterruptedException e){
-
-                throw new RuntimeException("BigQuery job was interrupted", e);
-
+        if (job.isDone()) {
+            System.out.println("Table created/replaced successfully with selected columns: " + selectedColumns);
+        } else {
+            throw new RuntimeException("BigQuery create table job failed: " + job.getStatus().getError());
         }
-
+    } catch (InterruptedException e) {
+        throw new RuntimeException("BigQuery job was interrupted", e);
     }
+}
 
 
  
