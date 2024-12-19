@@ -23,11 +23,6 @@
             z-index: 1000;
         }
 
-        .header h1 {
-            margin: 0;
-            font-size: 1.5rem;
-        }
-
         .upload-container,
         .table-container {
             background-color: #f4f3f8;
@@ -66,6 +61,13 @@
             background-color: #6b2d87;
         }
 
+        .success-message {
+            color: green;
+            font-size: 1rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
         .btn-select-columns {
             background-color: #7d3f98;
             color: white;
@@ -88,17 +90,6 @@
             text-align: left;
         }
 
-        .action-buttons {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        .alert {
-            margin-top: 1rem;
-        }
-
         footer {
             background-color: #4d0f68ea;
             color: white;
@@ -114,9 +105,8 @@
     </div>
 
     <main>
-        <!-- Success/Failure Messages -->
-        <div class="alert alert-info" th:if="${uploadMessage}" th:text="${uploadMessage}"></div>
-        <div class="alert alert-info" th:if="${tableMessage}" th:text="${tableMessage}"></div>
+        <!-- Single Message Placeholder -->
+        <div class="alert alert-info" th:if="${message}" th:text="${message}"></div>
 
         <!-- File Upload Section -->
         <div class="upload-container">
@@ -125,25 +115,26 @@
                 <div class="drop-zone" id="dropZone">
                     <p id="dropText">Drag & Drop File Here or Click to Upload</p>
                     <input type="file" id="file" name="file" style="display: none;" required>
+                    <span id="fileName" class="file-selected hidden"></span>
                 </div>
                 <button type="submit" class="btn-upload">Upload</button>
             </form>
+            <div id="successMessage" class="success-message">Upload Successful!</div>
         </div>
 
         <!-- Create/Replace BigQuery Table -->
         <div class="table-container">
             <h2>Create/Replace BigQuery Table</h2>
-            <form id="createTableForm" method="POST" action="/create-table">
-                <div class="mb-3">
+            <form method="POST" action="/create-table">
+                <div>
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
                 </div>
-                <div class="mb-3">
+                <div>
                     <label for="table" class="form-label">Table Name</label>
                     <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
                 </div>
 
-                <!-- Column Selection -->
                 <div id="columnContainer" class="hidden column-container">
                     <p>Select Columns:</p>
                     <div th:each="column : ${columns}">
@@ -153,8 +144,7 @@
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="action-buttons">
+                <div>
                     <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
                     <button type="submit" class="btn-upload">Create Table</button>
                 </div>
@@ -169,6 +159,8 @@
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file');
+        const fileNameDisplay = document.getElementById('fileName');
+        const dropText = document.getElementById('dropText');
         const columnContainer = document.getElementById('columnContainer');
 
         // Open file dialog on drop zone click
@@ -191,10 +183,24 @@
             dropZone.style.backgroundColor = '#ffffff';
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                fileInput.files = files; // Assign dropped files to input
-                document.getElementById('dropText').textContent = `Selected File: ${files[0].name}`;
+                fileInput.files = files; // Assign dropped files to the input
+                updateFileNameDisplay(files[0].name); // Update displayed file name
             }
         });
+
+        // Handle file input change (file selected via dialog)
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                updateFileNameDisplay(fileInput.files[0].name); // Update displayed file name
+            }
+        });
+
+        // Update the displayed file name
+        function updateFileNameDisplay(fileName) {
+            fileNameDisplay.textContent = `Selected File: ${fileName}`; // Set the file name
+            fileNameDisplay.classList.remove('hidden'); // Show the file name element
+            dropText.classList.add('hidden'); // Hide the placeholder text
+        }
 
         // Toggle column selection
         function toggleColumnSelection() {
