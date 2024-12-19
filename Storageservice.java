@@ -10,7 +10,9 @@ public interface StorageService {
 
 	void store(MultipartFile file);
 
-    void createOrReplaceBigQueryTable(String fileName , String datasetName , String tableName)
+    void createOrReplaceBigQueryTable(String fileName , String datasetName , String tableName);
+
+    void createOrReplaceBigQueryTableWithColumns(String fileName , String datasetName , String tableName List<String> selectedColumns);
 
 	Stream<Path> loadAll();
 
