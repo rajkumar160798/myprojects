@@ -72,11 +72,7 @@
             padding: 0.5rem 1.5rem;
             border: none;
             border-radius: 5px;
-            margin-top: 1rem;
             cursor: pointer;
-            position: absolute;
-            left: 10%;
-            transform: translateY(-50%);
         }
 
         .btn-select-columns:hover {
@@ -92,14 +88,22 @@
             text-align: left;
         }
 
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .alert {
+            margin-top: 1rem;
+        }
+
         footer {
             background-color: #4d0f68ea;
             color: white;
             text-align: center;
             padding: 1rem;
-            position: relative;
-            bottom: 0;
-            width: 100%;
         }
     </style>
 </head>
@@ -110,6 +114,10 @@
     </div>
 
     <main>
+        <!-- Success/Failure Messages -->
+        <div class="alert alert-info" th:if="${uploadMessage}" th:text="${uploadMessage}"></div>
+        <div class="alert alert-info" th:if="${tableMessage}" th:text="${tableMessage}"></div>
+
         <!-- File Upload Section -->
         <div class="upload-container">
             <h2>Upload Files to GCS Bucket</h2>
@@ -123,10 +131,9 @@
         </div>
 
         <!-- Create/Replace BigQuery Table -->
-        <div class="table-container position-relative">
+        <div class="table-container">
             <h2>Create/Replace BigQuery Table</h2>
             <form id="createTableForm" method="POST" action="/create-table">
-                <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
                 <div class="mb-3">
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
@@ -139,9 +146,18 @@
                 <!-- Column Selection -->
                 <div id="columnContainer" class="hidden column-container">
                     <p>Select Columns:</p>
-                    <div id="columnsPlaceholder"></div>
+                    <div th:each="column : ${columns}">
+                        <input type="checkbox" th:name="'columns'" th:value="${column}" class="form-check-input">
+                        <label th:text="${column}" class="form-check-label"></label>
+                        <br>
+                    </div>
                 </div>
-                <button type="submit" class="btn-upload">Create Table</button>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
+                    <button type="submit" class="btn-upload">Create Table</button>
+                </div>
             </form>
         </div>
     </main>
@@ -154,7 +170,6 @@
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file');
         const columnContainer = document.getElementById('columnContainer');
-        const columnsPlaceholder = document.getElementById('columnsPlaceholder');
 
         // Open file dialog on drop zone click
         dropZone.addEventListener('click', () => fileInput.click());
@@ -177,41 +192,13 @@
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 fileInput.files = files; // Assign dropped files to input
+                document.getElementById('dropText').textContent = `Selected File: ${files[0].name}`;
             }
         });
 
         // Toggle column selection
         function toggleColumnSelection() {
-            if (columnContainer.classList.contains('hidden')) {
-                columnContainer.classList.remove('hidden');
-                populateColumns(); // Populate columns dynamically when toggled
-            } else {
-                columnContainer.classList.add('hidden');
-            }
-        }
-
-        // Populate columns dynamically
-        function populateColumns() {
-            const columns = ['Column1', 'Column2', 'Column3']; // Replace with actual column names
-            columnsPlaceholder.innerHTML = ''; // Clear existing content
-            columns.forEach(column => {
-                const label = document.createElement('label');
-                label.classList.add('form-check-label');
-                label.textContent = column;
-
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.name = 'columns';
-                checkbox.value = column;
-                checkbox.classList.add('form-check-input');
-
-                const wrapper = document.createElement('div');
-                wrapper.classList.add('form-check');
-                wrapper.appendChild(checkbox);
-                wrapper.appendChild(label);
-
-                columnsPlaceholder.appendChild(wrapper);
-            });
+            columnContainer.classList.toggle('hidden');
         }
     </script>
 </body>
