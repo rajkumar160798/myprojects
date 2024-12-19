@@ -47,7 +47,8 @@
             background-color: #f8e1ff;
         }
 
-        .btn-upload {
+        .btn-upload,
+        .btn-create {
             background-color: #7d3f98;
             color: white;
             padding: 0.5rem 1.5rem;
@@ -57,15 +58,9 @@
             cursor: pointer;
         }
 
-        .btn-upload:hover {
+        .btn-upload:hover,
+        .btn-create:hover {
             background-color: #6b2d87;
-        }
-
-        .success-message {
-            color: green;
-            font-size: 1rem;
-            margin-top: 1rem;
-            display: none;
         }
 
         .btn-select-columns {
@@ -105,8 +100,8 @@
     </div>
 
     <main>
-        <!-- Single Message Placeholder -->
-        <div class="alert alert-info" th:if="${message}" th:text="${message}"></div>
+        <!-- Message Display -->
+        <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
 
         <!-- File Upload Section -->
         <div class="upload-container">
@@ -119,10 +114,9 @@
                 </div>
                 <button type="submit" class="btn-upload">Upload</button>
             </form>
-            <div id="successMessage" class="success-message">Upload Successful!</div>
         </div>
 
-        <!-- Create/Replace BigQuery Table -->
+        <!-- Create/Replace BigQuery Table Section -->
         <div class="table-container">
             <h2>Create/Replace BigQuery Table</h2>
             <form method="POST" action="/create-table">
@@ -135,6 +129,7 @@
                     <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
                 </div>
 
+                <!-- Column Selection -->
                 <div id="columnContainer" class="hidden column-container">
                     <p>Select Columns:</p>
                     <div th:each="column : ${columns}">
@@ -146,7 +141,7 @@
 
                 <div>
                     <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
-                    <button type="submit" class="btn-upload">Create Table</button>
+                    <button type="submit" class="btn-create">Create Table</button>
                 </div>
             </form>
         </div>
