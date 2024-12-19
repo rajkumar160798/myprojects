@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html xmlns:th="https://www.thymeleaf.org">
+
 <head>
     <title>File Upload & BigQuery Table Creation</title>
+    <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="icon" type="image/vnd.microsoft.icon" href="https://www.aetna.com/content/dam/aetna/asset-libraries/logos/favicon-violet-heart-32x32.png">
+
     <style>
         body {
             margin: 0;
             font-family: Arial, sans-serif;
             background: linear-gradient(135deg, #f8f9fa, #d1c4e9);
         }
+
         .header {
             background-color: #6b2d87;
             color: white;
@@ -21,7 +25,14 @@
             width: 100%;
             z-index: 1000;
         }
-        .upload-container, .table-container {
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+
+        .upload-container,
+        .table-container {
             background-color: #f4f3f8;
             padding: 2rem;
             border-radius: 10px;
@@ -30,31 +41,52 @@
             text-align: center;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         .drop-zone {
             border: 2px dashed #7d3f98;
+            border-radius: 10px;
             padding: 1rem;
             cursor: pointer;
             background-color: #ffffff;
             margin-bottom: 1rem;
-            border-radius: 10px;
         }
+
         .drop-zone:hover {
             background-color: #f8e1ff;
         }
-        .btn-submit, .btn-select-columns {
+
+        .btn-upload,
+        .btn-select-columns {
             background-color: #7d3f98;
             color: white;
-            border: none;
             padding: 0.5rem 1.5rem;
+            border: none;
             border-radius: 5px;
             margin-top: 1rem;
+            cursor: pointer;
         }
-        .btn-submit:hover, .btn-select-columns:hover {
+
+        .btn-upload:hover,
+        .btn-select-columns:hover {
             background-color: #6b2d87;
         }
+
+        .file-selected {
+            color: #7d3f98;
+            font-size: 1rem;
+            margin-top: 10px;
+            display: block;
+        }
+
+        .hidden {
+            display: none;
+        }
+
         .column-container {
             margin-top: 1rem;
+            text-align: left;
         }
+
         footer {
             background-color: #4d0f68ea;
             color: white;
@@ -66,91 +98,128 @@
         }
     </style>
 </head>
+
 <body>
     <div class="header">
-        <h1>File Upload & BigQuery Table Creation</h1>
+        <h1>AH Reports Web Application - Upload Files and Create Tables</h1>
     </div>
-    <div class="upload-container">
-        <h2>Upload Files to GCS Bucket</h2>
-        <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
-            <div class="drop-zone" id="dropZone">
-                <p>Drag & Drop File Here or Click to Upload</p>
-                <input type="file" id="file" name="file" style="display: none;" required>
-            </div>
-            <button type="submit" class="btn-submit">Upload</button>
-        </form>
-    </div>
-    <div class="table-container">
-        <h2>Create/Replace BigQuery Table</h2>
-        <form id="createTableForm" method="POST" action="/create-table">
-            <label for="dataset" class="form-label">Dataset Name</label>
-            <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
-            <label for="table" class="form-label">Table Name</label>
-            <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
-            <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
-            <div id="columnContainer" class="hidden column-container">
-                <p>Select Columns:</p>
-                <div id="columnsPlaceholder"></div>
-            </div>
-            <button type="submit" class="btn-submit mt-3">Create Table</button>
-        </form>
-    </div>
+
+    <main>
+        <!-- File Upload Section -->
+        <div class="upload-container">
+            <h2>Upload Files to GCS Bucket</h2>
+            <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
+                <div class="drop-zone" id="dropZone">
+                    <p id="dropText">Drag & Drop File Here or Click to Upload</p>
+                    <input type="file" id="file" name="file" style="display: none;" required>
+                    <span id="fileName" class="file-selected hidden"></span>
+                </div>
+                <button type="submit" class="btn-upload">Upload</button>
+            </form>
+        </div>
+
+        <!-- Create/Replace BigQuery Table -->
+        <div class="table-container">
+            <h2>Create/Replace BigQuery Table</h2>
+            <form id="createTableForm" method="POST" action="/create-table">
+                <label for="dataset" class="form-label">Dataset Name</label>
+                <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
+                <label for="table" class="form-label">Table Name</label>
+                <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
+                <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
+                <div id="columnContainer" class="hidden column-container">
+                    <p>Select Columns:</p>
+                    <div id="columnsPlaceholder"></div>
+                </div>
+                <button type="submit" class="btn-upload">Create Table</button>
+            </form>
+        </div>
+    </main>
+
     <footer>
         <p>&copy; 2024 AH Reports Inc.</p>
     </footer>
+
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file');
+        const fileNameDisplay = document.getElementById('fileName');
+        const dropText = document.getElementById('dropText');
         const columnContainer = document.getElementById('columnContainer');
         const columnsPlaceholder = document.getElementById('columnsPlaceholder');
-        const createTableForm = document.getElementById('createTableForm');
 
+        // Open file dialog on drop zone click
         dropZone.addEventListener('click', () => fileInput.click());
 
-        dropZone.addEventListener('dragover', (event) => {
-            event.preventDefault();
+        // Highlight the drop zone on drag over
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
             dropZone.style.backgroundColor = '#f8e1ff';
         });
 
+        // Remove highlight on drag leave
         dropZone.addEventListener('dragleave', () => {
             dropZone.style.backgroundColor = '#ffffff';
         });
 
-        dropZone.addEventListener('drop', (event) => {
-            event.preventDefault();
-            fileInput.files = event.dataTransfer.files;
+        // Handle file drop
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.backgroundColor = '#ffffff';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files; // Assign dropped files to input
+                displayFileName(files[0].name);
+            }
         });
 
+        // Handle file selection
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                displayFileName(fileInput.files[0].name);
+            }
+        });
+
+        function displayFileName(fileName) {
+            fileNameDisplay.textContent = `Selected File: ${fileName}`;
+            fileNameDisplay.classList.remove('hidden');
+            dropText.classList.add('hidden');
+        }
+
+        // Toggle column selection
         function toggleColumnSelection() {
             if (columnContainer.classList.contains('hidden')) {
                 columnContainer.classList.remove('hidden');
-                populateColumns(); // Dynamically populate columns when visible
+                populateColumns(); // Populate columns dynamically when toggled
             } else {
                 columnContainer.classList.add('hidden');
             }
         }
 
+        // Populate columns dynamically
         function populateColumns() {
-            const columns = ['Column1', 'Column2', 'Column3']; // Example column names
-            columnsPlaceholder.innerHTML = ''; // Clear existing columns
+            const columns = ['Column1', 'Column2', 'Column3']; // Replace with actual column names
+            columnsPlaceholder.innerHTML = ''; // Clear existing content
             columns.forEach(column => {
                 const label = document.createElement('label');
+                label.classList.add('form-check-label');
                 label.textContent = column;
 
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
                 checkbox.name = 'columns';
                 checkbox.value = column;
+                checkbox.classList.add('form-check-input');
 
-                label.prepend(checkbox);
-                columnsPlaceholder.appendChild(label);
-                columnsPlaceholder.appendChild(document.createElement('br'));
+                const wrapper = document.createElement('div');
+                wrapper.classList.add('form-check');
+                wrapper.appendChild(checkbox);
+                wrapper.appendChild(label);
+
+                columnsPlaceholder.appendChild(wrapper);
             });
         }
-
-        createTableForm.addEventListener('submit', (event) => {
-            // You can optionally validate column selection here
-        });
     </script>
 </body>
+
 </html>
