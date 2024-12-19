@@ -3,10 +3,7 @@
 
 <head>
     <title>File Upload & BigQuery Table Creation</title>
-    <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="icon" type="image/vnd.microsoft.icon" href="https://www.aetna.com/content/dam/aetna/asset-libraries/logos/favicon-violet-heart-32x32.png">
-
     <style>
         body {
             margin: 0;
@@ -55,8 +52,7 @@
             background-color: #f8e1ff;
         }
 
-        .btn-upload,
-        .btn-select-columns {
+        .btn-upload {
             background-color: #7d3f98;
             color: white;
             padding: 0.5rem 1.5rem;
@@ -66,16 +62,25 @@
             cursor: pointer;
         }
 
-        .btn-upload:hover,
-        .btn-select-columns:hover {
+        .btn-upload:hover {
             background-color: #6b2d87;
         }
 
-        .file-selected {
-            color: #7d3f98;
-            font-size: 1rem;
-            margin-top: 10px;
-            display: block;
+        .btn-select-columns {
+            background-color: #7d3f98;
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border: none;
+            border-radius: 5px;
+            margin-top: 1rem;
+            cursor: pointer;
+            position: absolute;
+            left: 10%;
+            transform: translateY(-50%);
+        }
+
+        .btn-select-columns:hover {
+            background-color: #6b2d87;
         }
 
         .hidden {
@@ -112,21 +117,26 @@
                 <div class="drop-zone" id="dropZone">
                     <p id="dropText">Drag & Drop File Here or Click to Upload</p>
                     <input type="file" id="file" name="file" style="display: none;" required>
-                    <span id="fileName" class="file-selected hidden"></span>
                 </div>
                 <button type="submit" class="btn-upload">Upload</button>
             </form>
         </div>
 
         <!-- Create/Replace BigQuery Table -->
-        <div class="table-container">
+        <div class="table-container position-relative">
             <h2>Create/Replace BigQuery Table</h2>
             <form id="createTableForm" method="POST" action="/create-table">
-                <label for="dataset" class="form-label">Dataset Name</label>
-                <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
-                <label for="table" class="form-label">Table Name</label>
-                <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
                 <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
+                <div class="mb-3">
+                    <label for="dataset" class="form-label">Dataset Name</label>
+                    <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
+                </div>
+                <div class="mb-3">
+                    <label for="table" class="form-label">Table Name</label>
+                    <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
+                </div>
+
+                <!-- Column Selection -->
                 <div id="columnContainer" class="hidden column-container">
                     <p>Select Columns:</p>
                     <div id="columnsPlaceholder"></div>
@@ -143,8 +153,6 @@
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file');
-        const fileNameDisplay = document.getElementById('fileName');
-        const dropText = document.getElementById('dropText');
         const columnContainer = document.getElementById('columnContainer');
         const columnsPlaceholder = document.getElementById('columnsPlaceholder');
 
@@ -169,22 +177,8 @@
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 fileInput.files = files; // Assign dropped files to input
-                displayFileName(files[0].name);
             }
         });
-
-        // Handle file selection
-        fileInput.addEventListener('change', () => {
-            if (fileInput.files.length > 0) {
-                displayFileName(fileInput.files[0].name);
-            }
-        });
-
-        function displayFileName(fileName) {
-            fileNameDisplay.textContent = `Selected File: ${fileName}`;
-            fileNameDisplay.classList.remove('hidden');
-            dropText.classList.add('hidden');
-        }
 
         // Toggle column selection
         function toggleColumnSelection() {
