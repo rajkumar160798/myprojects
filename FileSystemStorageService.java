@@ -1,36 +1,66 @@
 package com.cvs.anbc.ahreports.storage;
 
+import com.cvs.anbc.ahreports.dao.StorageProperties;
+import com.cvs.anbc.ahreports.dao.BigQueryProperties;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import com.google.cloud.bigquery.*;
+import com.google.cloud.storage.*;
+
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
-import java.util.stream.Collectors;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import com.cvs.anbc.ahreports.exceptions.StorageException;
-import com.google.cloud.bigquery.*;
-import com.google.cloud.storage.*;
 
 @Service
 public class FileSystemStorageService implements StorageService {
 
     private final Storage storage;
     private final BigQuery bigQuery;
-    private final String bucketName;
+    private final StorageProperties storageProperties;
+    private final BigQueryProperties bigQueryProperties;
 
-    public FileSystemStorageService(StorageProperties properties) {
-        if (properties.getBucketName().trim().isEmpty()) {
-            throw new StorageException("GCS bucket name cannot be empty.");
-        }
+    private String bucketName;
+    private String projectId;
+
+    public FileSystemStorageService(StorageProperties storageProperties, BigQueryProperties bigQueryProperties) {
         this.storage = StorageOptions.getDefaultInstance().getService();
         this.bigQuery = BigQueryOptions.getDefaultInstance().getService();
-        this.bucketName = properties.getBucketName();
+        this.storageProperties = storageProperties;
+        this.bigQueryProperties = bigQueryProperties;
+
+        // Set default environment
+        this.bucketName = storageProperties.getBucketName();
+        this.projectId = bigQueryProperties.getProjectId();
+    }
+
+    public void setEnvironment(String environment) {
+        switch (environment.toLowerCase()) {
+            case "dev":
+                this.bucketName = storageProperties.getDevBucketName();
+                this.projectId = bigQueryProperties.getDevProjectId();
+                break;
+            case "test":
+                this.bucketName = storageProperties.getTestBucketName();
+                this.projectId = bigQueryProperties.getTestProjectId();
+                break;
+            case "prod":
+                this.bucketName = storageProperties.getProdBucketName();
+                this.projectId = bigQueryProperties.getProdProjectId();
+                break;
+            default:
+                throw new IllegalArgumentException("Invalid environment: " + environment);
+        }
+        System.out.println("Environment set to: " + environment.toUpperCase());
+        System.out.println("Bucket Name: " + this.bucketName);
+        System.out.println("Project ID: " + this.projectId);
     }
 
     @Override
     public void store(MultipartFile file) {
         try {
-            if (file.isEmpty()) throw new StorageException("Failed to store empty file.");
-
+            if (file.isEmpty()) {
+                throw new StorageException("Failed to store empty file.");
+            }
             Path tempDir = Files.createTempDirectory("upload-temp");
             Path tempFilePath = tempDir.resolve(file.getOriginalFilename());
             Files.copy(file.getInputStream(), tempFilePath, StandardCopyOption.REPLACE_EXISTING);
@@ -41,31 +71,31 @@ public class FileSystemStorageService implements StorageService {
             Files.deleteIfExists(tempFilePath);
             Files.deleteIfExists(tempDir);
         } catch (IOException e) {
-            throw new StorageException("Failed to upload file to GCS bucket", e);
+            throw new StorageException("Failed to upload file to GCS bucket.", e);
         }
     }
 
     @Override
-    public void createOrReplaceBigQueryTableWithColumns(String fileName, String datasetName, String tableName, List<String> selectedColumns) {
+    public void createOrReplaceBigQueryTable(String fileName, String datasetName, String tableName) {
         String gcsFilePath = "gs://" + bucketName + "/" + fileName;
+        TableId tableId = TableId.of(projectId, datasetName, tableName);
 
-        Schema schema = Schema.of(selectedColumns.stream()
-            .map(column -> Field.of(column, StandardSQLTypeName.STRING))
-            .collect(Collectors.toList()));
-
-        LoadJobConfiguration config = LoadJobConfiguration.newBuilder(
-                TableId.of("anbc-hcb-dev", datasetName, tableName),
-                gcsFilePath)
-            .setSchema(schema)
-            .setFormatOptions(FormatOptions.csv())
-            .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
-            .build();
+        LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, gcsFilePath)
+                .setFormatOptions(FormatOptions.csv())
+                .setAutodetect(true)
+                .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
+                .build();
 
         try {
-            Job job = bigQuery.create(JobInfo.of(config)).waitFor();
-            if (!job.isDone()) throw new RuntimeException("BigQuery table creation failed: " + job.getStatus().getError());
+            Job job = bigQuery.create(JobInfo.of(loadConfig));
+            job = job.waitFor();
+            if (job.isDone()) {
+                System.out.println("Table created successfully: " + tableId);
+            } else {
+                throw new RuntimeException("BigQuery table creation failed: " + job.getStatus().getError());
+            }
         } catch (InterruptedException e) {
-            throw new RuntimeException("BigQuery job was interrupted", e);
+            throw new RuntimeException("BigQuery job was interrupted.", e);
         }
     }
 }
