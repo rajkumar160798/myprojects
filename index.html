@@ -23,15 +23,20 @@
             z-index: 1000;
         }
 
+        .container {
+            margin: 100px auto 50px;
+            max-width: 800px;
+            text-align: center;
+        }
+
         .upload-container,
         .table-container {
             background-color: #f4f3f8;
             padding: 2rem;
             border-radius: 10px;
-            max-width: 800px;
-            margin: 100px auto 50px;
             text-align: center;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
         }
 
         .drop-zone {
@@ -47,8 +52,7 @@
             background-color: #f8e1ff;
         }
 
-        .btn-upload,
-        .btn-create {
+        .btn {
             background-color: #7d3f98;
             color: white;
             padding: 0.5rem 1.5rem;
@@ -58,31 +62,12 @@
             cursor: pointer;
         }
 
-        .btn-upload:hover,
-        .btn-create:hover {
-            background-color: #6b2d87;
-        }
-
-        .btn-select-columns {
-            background-color: #7d3f98;
-            color: white;
-            padding: 0.5rem 1.5rem;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .btn-select-columns:hover {
+        .btn:hover {
             background-color: #6b2d87;
         }
 
         .hidden {
             display: none;
-        }
-
-        .column-container {
-            margin-top: 1rem;
-            text-align: left;
         }
 
         footer {
@@ -99,27 +84,40 @@
         <h1>AH Reports Web Application - Upload Files and Create Tables</h1>
     </div>
 
-    <main>
+    <main class="container">
+        <!-- Environment Selection -->
+        <div>
+            <label for="environment" class="form-label">Select Environment:</label>
+            <select id="environment" name="environment" class="form-select mb-4" onchange="updateEnvironmentSelection()" required>
+                <option value="">-- Select Environment --</option>
+                <option value="dev">DEV</option>
+                <option value="test">TEST</option>
+                <option value="prod">PROD</option>
+            </select>
+        </div>
+
         <!-- Message Display -->
         <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
 
         <!-- File Upload Section -->
-        <div class="upload-container">
+        <div class="upload-container hidden" id="uploadSection">
             <h2>Upload Files to GCS Bucket</h2>
             <form method="POST" enctype="multipart/form-data" action="/" id="uploadForm">
+                <input type="hidden" name="environment" id="uploadEnvironment">
                 <div class="drop-zone" id="dropZone">
                     <p id="dropText">Drag & Drop File Here or Click to Upload</p>
                     <input type="file" id="file" name="file" style="display: none;" required>
                     <span id="fileName" class="file-selected hidden"></span>
                 </div>
-                <button type="submit" class="btn-upload">Upload</button>
+                <button type="submit" class="btn">Upload</button>
             </form>
         </div>
 
         <!-- Create/Replace BigQuery Table Section -->
-        <div class="table-container">
+        <div class="table-container hidden" id="tableSection">
             <h2>Create/Replace BigQuery Table</h2>
             <form method="POST" action="/create-table">
+                <input type="hidden" name="environment" id="tableEnvironment">
                 <div>
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Dataset Name" class="form-control mb-2" required>
@@ -128,20 +126,8 @@
                     <label for="table" class="form-label">Table Name</label>
                     <input type="text" id="table" name="table" placeholder="Table Name" class="form-control mb-2" required>
                 </div>
-
-                <!-- Column Selection -->
-                <div id="columnContainer" class="hidden column-container">
-                    <p>Select Columns:</p>
-                    <div th:each="column : ${columns}">
-                        <input type="checkbox" th:name="'columns'" th:value="${column}" class="form-check-input">
-                        <label th:text="${column}" class="form-check-label"></label>
-                        <br>
-                    </div>
-                </div>
-
                 <div>
-                    <button type="button" class="btn-select-columns" onclick="toggleColumnSelection()">Select Specific Columns</button>
-                    <button type="submit" class="btn-create">Create Table</button>
+                    <button type="submit" class="btn">Create Table</button>
                 </div>
             </form>
         </div>
@@ -152,11 +138,34 @@
     </footer>
 
     <script>
+        // Get DOM Elements
+        const uploadSection = document.getElementById('uploadSection');
+        const tableSection = document.getElementById('tableSection');
+        const uploadEnvironment = document.getElementById('uploadEnvironment');
+        const tableEnvironment = document.getElementById('tableEnvironment');
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('file');
         const fileNameDisplay = document.getElementById('fileName');
         const dropText = document.getElementById('dropText');
-        const columnContainer = document.getElementById('columnContainer');
+
+        // Update environment selection
+        function updateEnvironmentSelection() {
+            const selectedEnv = document.getElementById('environment').value;
+
+            if (selectedEnv) {
+                // Show upload and table sections
+                uploadSection.classList.remove('hidden');
+                tableSection.classList.remove('hidden');
+
+                // Set environment for forms
+                uploadEnvironment.value = selectedEnv;
+                tableEnvironment.value = selectedEnv;
+            } else {
+                // Hide upload and table sections
+                uploadSection.classList.add('hidden');
+                tableSection.classList.add('hidden');
+            }
+        }
 
         // Open file dialog on drop zone click
         dropZone.addEventListener('click', () => fileInput.click());
@@ -178,28 +187,23 @@
             dropZone.style.backgroundColor = '#ffffff';
             const files = e.dataTransfer.files;
             if (files.length > 0) {
-                fileInput.files = files; // Assign dropped files to the input
-                updateFileNameDisplay(files[0].name); // Update displayed file name
+                fileInput.files = files;
+                updateFileNameDisplay(files[0].name);
             }
         });
 
-        // Handle file input change (file selected via dialog)
+        // Handle file input change
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length > 0) {
-                updateFileNameDisplay(fileInput.files[0].name); // Update displayed file name
+                updateFileNameDisplay(fileInput.files[0].name);
             }
         });
 
         // Update the displayed file name
         function updateFileNameDisplay(fileName) {
-            fileNameDisplay.textContent = `Selected File: ${fileName}`; // Set the file name
-            fileNameDisplay.classList.remove('hidden'); // Show the file name element
-            dropText.classList.add('hidden'); // Hide the placeholder text
-        }
-
-        // Toggle column selection
-        function toggleColumnSelection() {
-            columnContainer.classList.toggle('hidden');
+            fileNameDisplay.textContent = `Selected File: ${fileName}`;
+            fileNameDisplay.classList.remove('hidden');
+            dropText.classList.add('hidden');
         }
     </script>
 </body>
