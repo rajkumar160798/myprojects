@@ -38,24 +38,24 @@
         .hidden {
             display: none;
         }
+
+        .form-section {
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 
 <body>
-    <!-- Header -->
     <div class="header">
-        <h1>AH Reports - File Upload & BigQuery Table Management</h1>
+        <h1>AH Reports Web Application - File Upload & Table Creation</h1>
     </div>
 
     <div class="container">
-        <!-- Message Section -->
-        <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
-
         <!-- Step 1: Environment Selection -->
         <div id="envSelection">
-            <h3>Step 1: Select Environment</h3>
-            <form id="envForm">
-                <div class="mb-3">
+            <h3>Step 1: Select Environment & Upload File</h3>
+            <form method="POST" enctype="multipart/form-data" action="/" id="fileUploadForm">
+                <div class="form-section">
                     <label for="environment" class="form-label">Environment</label>
                     <select name="environment" id="environment" class="form-select" required>
                         <option value="" selected disabled>Select Environment</option>
@@ -64,48 +64,44 @@
                         <option value="prod">Production</option>
                     </select>
                 </div>
-                <button type="button" class="btn btn-primary" id="proceedToUpload">Proceed</button>
-            </form>
-        </div>
 
-        <!-- Step 2: File Upload -->
-        <div id="fileUpload" class="hidden">
-            <h3>Step 2: Upload File</h3>
-            <form method="POST" action="/" enctype="multipart/form-data">
-                <input type="hidden" name="environment" id="uploadEnvironment">
-                <div class="mb-3">
-                    <label for="file" class="form-label">Select File</label>
+                <div class="form-section">
+                    <label for="file" class="form-label">Upload File</label>
                     <input type="file" name="file" id="file" class="form-control" required>
                 </div>
                 <button type="submit" class="btn btn-primary">Upload File</button>
             </form>
         </div>
 
+        <!-- Step 2: Ask to Create Table -->
+        <div id="createTablePrompt" class="hidden">
+            <h3>Step 2: Do You Want to Create a Table?</h3>
+            <button type="button" class="btn btn-success" id="proceedToCreateTable">Yes, Create Table</button>
+            <button type="button" class="btn btn-secondary" id="skipCreateTable">No, Skip</button>
+        </div>
+
         <!-- Step 3: Create Table -->
-        <div id="createTable" class="hidden">
+        <div id="createTableForm" class="hidden">
             <h3>Step 3: Create or Replace BigQuery Table</h3>
             <form method="POST" action="/create-table">
                 <input type="hidden" name="environment" id="tableEnvironment">
-
-                <div class="mb-3">
+                <div class="form-section">
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Enter Dataset Name" class="form-control" required>
                 </div>
-
-                <div class="mb-3">
+                <div class="form-section">
                     <label for="table" class="form-label">Table Name</label>
                     <input type="text" id="table" name="table" placeholder="Enter Table Name" class="form-control" required>
                 </div>
 
                 <!-- Column Selection -->
-                <div>
+                <div class="form-section">
                     <label class="form-label">Select Specific Columns (Optional):</label>
                     <div th:each="column : ${columns}">
                         <input type="checkbox" th:name="'columns'" th:value="${column}" class="form-check-input">
                         <label th:text="${column}" class="form-check-label"></label><br>
                     </div>
                 </div>
-
                 <button type="submit" class="btn btn-success">Create Table</button>
             </form>
         </div>
@@ -113,27 +109,36 @@
 
     <script>
         const envSelection = document.getElementById("envSelection");
-        const fileUpload = document.getElementById("fileUpload");
-        const createTable = document.getElementById("createTable");
-        const proceedToUpload = document.getElementById("proceedToUpload");
-        const uploadEnvironment = document.getElementById("uploadEnvironment");
-        const tableEnvironment = document.getElementById("tableEnvironment");
+        const createTablePrompt = document.getElementById("createTablePrompt");
+        const createTableForm = document.getElementById("createTableForm");
+        const proceedToCreateTable = document.getElementById("proceedToCreateTable");
+        const skipCreateTable = document.getElementById("skipCreateTable");
         const environmentSelect = document.getElementById("environment");
+        const tableEnvironment = document.getElementById("tableEnvironment");
 
-        // Step 1: Proceed to Upload File
-        proceedToUpload.addEventListener("click", () => {
-            const selectedEnv = environmentSelect.value;
-            if (selectedEnv) {
-                uploadEnvironment.value = selectedEnv;
-                tableEnvironment.value = selectedEnv;
+        // After file upload, ask if the user wants to create a table
+        document.getElementById("fileUploadForm").addEventListener("submit", (e) => {
+            e.preventDefault();
+            if (environmentSelect.value && document.getElementById("file").value) {
                 envSelection.classList.add("hidden");
-                fileUpload.classList.remove("hidden");
+                createTablePrompt.classList.remove("hidden");
+                tableEnvironment.value = environmentSelect.value; // Set environment for the table creation form
             } else {
-                alert("Please select an environment before proceeding.");
+                alert("Please select an environment and upload a file.");
             }
         });
 
-        // Step 2: File upload will trigger server-side redirection to "/create-table" where the table form will be displayed.
+        // Show create table form
+        proceedToCreateTable.addEventListener("click", () => {
+            createTablePrompt.classList.add("hidden");
+            createTableForm.classList.remove("hidden");
+        });
+
+        // Skip create table
+        skipCreateTable.addEventListener("click", () => {
+            alert("File uploaded successfully. Table creation skipped.");
+            location.reload(); // Refresh the page
+        });
     </script>
 </body>
 
