@@ -52,9 +52,9 @@
         <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
 
         <!-- Step 1: Environment Selection -->
-        <div id="envSelection" class="mb-4" th:if="${environment == null}">
+        <div id="envSelection">
             <h3>Step 1: Select Environment</h3>
-            <form method="POST" action="/" id="envForm">
+            <form id="envForm">
                 <div class="mb-3">
                     <label for="environment" class="form-label">Environment</label>
                     <select name="environment" id="environment" class="form-select" required>
@@ -69,10 +69,10 @@
         </div>
 
         <!-- Step 2: File Upload -->
-        <div id="fileUpload" class="mb-4" th:if="${environment != null && uploadedFileName == null}">
+        <div id="fileUpload" class="hidden">
             <h3>Step 2: Upload File</h3>
-            <form method="POST" action="/" enctype="multipart/form-data" id="uploadForm">
-                <input type="hidden" name="environment" th:value="${environment}">
+            <form method="POST" action="/" enctype="multipart/form-data">
+                <input type="hidden" name="environment" id="uploadEnvironment">
                 <div class="mb-3">
                     <label for="file" class="form-label">Select File</label>
                     <input type="file" name="file" id="file" class="form-control" required>
@@ -82,21 +82,23 @@
         </div>
 
         <!-- Step 3: Create Table -->
-        <div id="createTable" th:if="${uploadedFileName != null}" class="mb-4">
+        <div id="createTable" class="hidden">
             <h3>Step 3: Create or Replace BigQuery Table</h3>
             <form method="POST" action="/create-table">
-                <input type="hidden" name="environment" th:value="${environment}">
+                <input type="hidden" name="environment" id="tableEnvironment">
+
                 <div class="mb-3">
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Enter Dataset Name" class="form-control" required>
                 </div>
+
                 <div class="mb-3">
                     <label for="table" class="form-label">Table Name</label>
                     <input type="text" id="table" name="table" placeholder="Enter Table Name" class="form-control" required>
                 </div>
 
                 <!-- Column Selection -->
-                <div id="columnSelection">
+                <div>
                     <label class="form-label">Select Specific Columns (Optional):</label>
                     <div th:each="column : ${columns}">
                         <input type="checkbox" th:name="'columns'" th:value="${column}" class="form-check-input">
@@ -110,23 +112,28 @@
     </div>
 
     <script>
-        const proceedToUpload = document.getElementById("proceedToUpload");
-        const environmentSelect = document.getElementById("environment");
         const envSelection = document.getElementById("envSelection");
         const fileUpload = document.getElementById("fileUpload");
+        const createTable = document.getElementById("createTable");
+        const proceedToUpload = document.getElementById("proceedToUpload");
+        const uploadEnvironment = document.getElementById("uploadEnvironment");
+        const tableEnvironment = document.getElementById("tableEnvironment");
+        const environmentSelect = document.getElementById("environment");
 
+        // Step 1: Proceed to Upload File
         proceedToUpload.addEventListener("click", () => {
             const selectedEnv = environmentSelect.value;
             if (selectedEnv) {
-                document.querySelectorAll("[name='environment']").forEach(input => {
-                    input.value = selectedEnv;
-                });
+                uploadEnvironment.value = selectedEnv;
+                tableEnvironment.value = selectedEnv;
                 envSelection.classList.add("hidden");
                 fileUpload.classList.remove("hidden");
             } else {
                 alert("Please select an environment before proceeding.");
             }
         });
+
+        // Step 2: File upload will trigger server-side redirection to "/create-table" where the table form will be displayed.
     </script>
 </body>
 
