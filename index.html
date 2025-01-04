@@ -52,7 +52,7 @@
         <div th:if="${message}" class="alert alert-info" th:text="${message}"></div>
 
         <!-- Step 1: Environment Selection -->
-        <div id="envSelection" class="mb-4">
+        <div id="envSelection" class="mb-4" th:if="${environment == null}">
             <h3>Step 1: Select Environment</h3>
             <form method="POST" action="/" id="envForm">
                 <div class="mb-3">
@@ -69,10 +69,10 @@
         </div>
 
         <!-- Step 2: File Upload -->
-        <div id="fileUpload" class="hidden mb-4">
+        <div id="fileUpload" class="mb-4" th:if="${environment != null && uploadedFileName == null}">
             <h3>Step 2: Upload File</h3>
             <form method="POST" action="/" enctype="multipart/form-data" id="uploadForm">
-                <input type="hidden" name="environment" id="uploadEnvironment">
+                <input type="hidden" name="environment" th:value="${environment}">
                 <div class="mb-3">
                     <label for="file" class="form-label">Select File</label>
                     <input type="file" name="file" id="file" class="form-control" required>
@@ -82,23 +82,21 @@
         </div>
 
         <!-- Step 3: Create Table -->
-        <div id="createTable" class="hidden">
+        <div id="createTable" th:if="${uploadedFileName != null}" class="mb-4">
             <h3>Step 3: Create or Replace BigQuery Table</h3>
             <form method="POST" action="/create-table">
-                <input type="hidden" name="environment" id="tableEnvironment">
-
+                <input type="hidden" name="environment" th:value="${environment}">
                 <div class="mb-3">
                     <label for="dataset" class="form-label">Dataset Name</label>
                     <input type="text" id="dataset" name="dataset" placeholder="Enter Dataset Name" class="form-control" required>
                 </div>
-
                 <div class="mb-3">
                     <label for="table" class="form-label">Table Name</label>
                     <input type="text" id="table" name="table" placeholder="Enter Table Name" class="form-control" required>
                 </div>
 
                 <!-- Column Selection -->
-                <div id="columnSelection" class="hidden">
+                <div id="columnSelection">
                     <label class="form-label">Select Specific Columns (Optional):</label>
                     <div th:each="column : ${columns}">
                         <input type="checkbox" th:name="'columns'" th:value="${column}" class="form-check-input">
@@ -106,38 +104,28 @@
                     </div>
                 </div>
 
-                <button type="button" class="btn btn-secondary" id="toggleColumns">Select Columns</button>
                 <button type="submit" class="btn btn-success">Create Table</button>
             </form>
         </div>
     </div>
 
     <script>
-        // Step-by-step navigation
+        const proceedToUpload = document.getElementById("proceedToUpload");
+        const environmentSelect = document.getElementById("environment");
         const envSelection = document.getElementById("envSelection");
         const fileUpload = document.getElementById("fileUpload");
-        const createTable = document.getElementById("createTable");
-        const proceedToUpload = document.getElementById("proceedToUpload");
-        const toggleColumns = document.getElementById("toggleColumns");
-        const columnSelection = document.getElementById("columnSelection");
-        const uploadEnvironment = document.getElementById("uploadEnvironment");
-        const tableEnvironment = document.getElementById("tableEnvironment");
-        const environmentSelect = document.getElementById("environment");
 
         proceedToUpload.addEventListener("click", () => {
             const selectedEnv = environmentSelect.value;
             if (selectedEnv) {
-                uploadEnvironment.value = selectedEnv;
-                tableEnvironment.value = selectedEnv;
+                document.querySelectorAll("[name='environment']").forEach(input => {
+                    input.value = selectedEnv;
+                });
                 envSelection.classList.add("hidden");
                 fileUpload.classList.remove("hidden");
             } else {
                 alert("Please select an environment before proceeding.");
             }
-        });
-
-        toggleColumns.addEventListener("click", () => {
-            columnSelection.classList.toggle("hidden");
         });
     </script>
 </body>
