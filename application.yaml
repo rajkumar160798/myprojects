@@ -1,0 +1,13 @@
+env: default
+
+spring:
+  profile: local
+  application:
+    name: ah-reports-utils
+  servlet:
+    multipart:
+    max-file-size: 128kb
+    max-request-size: 128kb
+
+storage:
+  bucketName: ah-reports-code
