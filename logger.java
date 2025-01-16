@@ -1,15 +1,6 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import com.google.cloud.bigquery.*;
-
-public void createOrReplaceBigQueryTableWithInferredTypes(String fileName, String datasetName, String tableName) {
+@Override
+public void createOrReplaceBigQueryTableWithColumns(String fileName, String datasetName, String tableName,
+        List<String> selectedColumns) {
     String gcsFilePath = "gs://" + bucketName + "/" + fileName;
     logger.info("GCS File Path: {}", gcsFilePath);
     logger.info("Project ID = {}", projectId);
@@ -17,9 +8,10 @@ public void createOrReplaceBigQueryTableWithInferredTypes(String fileName, Strin
     TableId tableId = TableId.of(projectId, datasetName, tableName);
     logger.info("Table ID: = {}", tableId.toString());
 
+    // Read the file and extract the header to get the actual column names
     List<String> headerColumns = new ArrayList<>();
-    Map<String, StandardSQLTypeName> inferredColumnTypes = new HashMap<>();
-
+    List<List<String>> rows = new ArrayList<>();
+    
     try (BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(gcsFilePath)), StandardCharsets.UTF_8))) {
         // Read the header to get the column names
         String headerLine = br.readLine();
@@ -30,38 +22,59 @@ public void createOrReplaceBigQueryTableWithInferredTypes(String fileName, Strin
             throw new RuntimeException("File is empty or doesn't contain a header.");
         }
 
+        // Validate if selected columns exist in the header
+        if (!headerColumns.containsAll(selectedColumns)) {
+            throw new RuntimeException("Selected columns are not present in the file header.");
+        }
+
         // Sample data (for example, the first 100 rows) to infer types
-        List<List<String>> rows = new ArrayList<>();
         String line;
         int rowCount = 0;
         while ((line = br.readLine()) != null && rowCount < 100) {
             rows.add(Arrays.asList(line.split(",")));
             rowCount++;
         }
-
-        // Infer data types for each column
-        for (int colIndex = 0; colIndex < headerColumns.size(); colIndex++) {
-            String columnName = headerColumns.get(colIndex);
-            List<String> columnData = rows.stream()
-                    .map(row -> row.get(colIndex))
-                    .collect(Collectors.toList());
-            inferredColumnTypes.put(columnName, inferColumnType(columnData));
-        }
-
     } catch (IOException e) {
         logger.error("Error reading file header: {}", e.getMessage(), e);
         throw new RuntimeException("Error reading file header", e);
     }
 
-    // Generate schema based on inferred column types
-    Schema schema = Schema.of(inferredColumnTypes.entrySet().stream()
-            .map(entry -> Field.of(entry.getKey(), entry.getValue()))
+    // Reorder the columns according to the selectedColumns order
+    List<String> reorderedColumns = new ArrayList<>();
+    for (String column : selectedColumns) {
+        if (headerColumns.contains(column)) {
+            reorderedColumns.add(column);
+        }
+    }
+
+    // Map the schema to the selected columns (assuming all columns are STRING for simplicity)
+    Schema schema = Schema.of(reorderedColumns.stream()
+            .map(column -> Field.of(column, StandardSQLTypeName.STRING)) // Assuming STRING for all columns
             .collect(Collectors.toList()));
 
-    logger.info("Inferred Schema: {}", schema);
+    logger.info("Schema: {}", schema);
 
-    // Proceed with the BigQuery upload process
-    LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, gcsFilePath)
+    // Process the rows and reorder the data according to selectedColumns
+    List<String> reorderedData = new ArrayList<>();
+    for (List<String> row : rows) {
+        List<String> reorderedRow = reorderedColumns.stream()
+                .map(column -> row.get(headerColumns.indexOf(column))) // Ensure data matches selected column order
+                .collect(Collectors.toList());
+        reorderedData.add(String.join(",", reorderedRow));
+    }
+
+    // Write the reordered data to a temp file and upload it to GCS
+    Path tempFile;
+    try {
+        tempFile = Files.createTempFile("reordered_", ".csv");
+        Files.write(tempFile, reorderedData);
+    } catch (IOException e) {
+        logger.error("Error writing to temp file: {}", e.getMessage(), e);
+        throw new RuntimeException("Error writing to temp file", e);
+    }
+
+    // Now proceed to upload the reordered data to BigQuery
+    LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, "gs://" + bucketName + "/" + tempFile.getFileName())
             .setSchema(schema)
             .setFormatOptions(FormatOptions.csv().toBuilder().setSkipLeadingRows(1).build())
             .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
@@ -73,67 +86,18 @@ public void createOrReplaceBigQueryTableWithInferredTypes(String fileName, Strin
         String jobName = "jobId_" + UUID.randomUUID().toString();
         JobId jobId = JobId.newBuilder().setLocation("us").setJob(jobName).setProject(computeProjectId)
                 .build();
-        logger.info("Compute Project ID : {}", computeProjectId);
+        logger.info("Submitting BigQuery job for table creation with selected columns: {}", tableName);
 
         Job job = bigQuery.create(JobInfo.of(jobId, loadConfig));
         job = job.waitFor();
 
         if (job.isDone()) {
-            logger.info("Table created/replaced successfully with inferred schema: {}.{}.{}", projectId,
+            logger.info("Table created/replaced successfully with selected columns: {}.{}.{}", projectId,
                     datasetName, tableName);
         } else {
             throw new RuntimeException("BigQuery create table job failed: " + job.getStatus().getError());
         }
     } catch (InterruptedException e) {
         throw new RuntimeException("BigQuery job was interrupted", e);
-    }
-}
-
-// Method to infer the type of data based on column values
-private StandardSQLTypeName inferColumnType(List<String> columnData) {
-    for (String value : columnData) {
-        // Check if the value can be parsed as a date
-        if (isDate(value)) {
-            return StandardSQLTypeName.DATE;
-        }
-        // Check if the value can be parsed as an integer
-        if (isInteger(value)) {
-            return StandardSQLTypeName.INTEGER;
-        }
-        // Check if the value can be parsed as a float
-        if (isFloat(value)) {
-            return StandardSQLTypeName.FLOAT64;
-        }
-    }
-    // If no valid type is found, return STRING
-    return StandardSQLTypeName.STRING;
-}
-
-// Helper methods to check data types
-private boolean isDate(String value) {
-    try {
-        // Try parsing as a date (example: "yyyy-MM-dd")
-        java.time.LocalDate.parse(value);
-        return true;
-    } catch (Exception e) {
-        return false;
-    }
-}
-
-private boolean isInteger(String value) {
-    try {
-        Integer.parseInt(value);
-        return true;
-    } catch (NumberFormatException e) {
-        return false;
-    }
-}
-
-private boolean isFloat(String value) {
-    try {
-        Float.parseFloat(value);
-        return true;
-    } catch (NumberFormatException e) {
-        return false;
     }
 }
