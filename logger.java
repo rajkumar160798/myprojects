@@ -9,14 +9,14 @@ public void createOrReplaceBigQueryTableWithColumns(String fileName, String data
     logger.info("Table ID: = {}", tableId.toString());
 
     // Read the file and extract the header to get the actual column names
-    List<String> headerColumns = new ArrayList<>();
+    final List<String> headerColumns = new ArrayList<>();
     List<List<String>> rows = new ArrayList<>();
     
     try (BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(gcsFilePath)), StandardCharsets.UTF_8))) {
         // Read the header to get the column names
         String headerLine = br.readLine();
         if (headerLine != null) {
-            headerColumns = Arrays.asList(headerLine.split(","));
+            headerColumns.addAll(Arrays.asList(headerLine.split(",")));
             logger.info("Detected columns: {}", headerColumns);
         } else {
             throw new RuntimeException("File is empty or doesn't contain a header.");
