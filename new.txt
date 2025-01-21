@@ -1,6 +1,124 @@
-Fix column name extraction and encoding issues
+@Override
+public void createOrReplaceBigQueryTableWithColumns(String fileName, String datasetName, String tableName,
+        List<String> selectedColumns) {
+    String gcsFilePath = "gs://" + bucketName + "/" + fileName;
+    logger.info("GCS File Path: {}", gcsFilePath);
+    logger.info("Project ID = {}", projectId);
 
-- Updated getColumnsFromFile method to use UTF-8 encoding when reading the file.
-- Added trimming of column names to remove leading and trailing spaces.
-- Added removal of non-printable characters from column names to ensure valid field names.
-- Improved logging for better debugging and error tracking.
+    TableId tableId = TableId.of(projectId, datasetName, tableName);
+    logger.info("Table ID: = {}", tableId.toString());
+
+    // Read the file and extract the header to get the actual column names
+    final List<String> headerColumns = new ArrayList<>();
+    List<List<String>> rows = new ArrayList<>();
+    
+    // Use Google Cloud Storage client to read the file
+    Storage storage = StorageOptions.getDefaultInstance().getService();
+    try (BufferedReader br = new BufferedReader(new InputStreamReader(
+            new ByteArrayInputStream(storage.readAllBytes(BlobId.of(bucketName, fileName))), StandardCharsets.UTF_8))) {
+        // Read the header to get the column names
+        String headerLine = br.readLine();
+        if (headerLine != null) {
+            headerColumns.addAll(Arrays.stream(headerLine.split(","))
+                    .map(String::trim)
+                    .map(String::toLowerCase)
+                    .collect(Collectors.toList()));
+            logger.info("Detected columns: {}", headerColumns);
+        } else {
+            throw new RuntimeException("File is empty or doesn't contain a header.");
+        }
+
+        // Validate if selected columns exist in the header
+        List<String> normalizedSelectedColumns = selectedColumns.stream()
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .collect(Collectors.toList());
+        if (!headerColumns.containsAll(normalizedSelectedColumns)) {
+            throw new RuntimeException("Selected columns are not present in the file header.");
+        }
+
+        // Sample data (for example, the first 100 rows) to infer types
+        String line;
+        int rowCount = 0;
+        while ((line = br.readLine()) != null && rowCount < 100) {
+            rows.add(Arrays.asList(line.split(",")));
+            rowCount++;
+        }
+    } catch (IOException e) {
+        logger.error("Error reading file header: {}", e.getMessage(), e);
+        throw new RuntimeException("Error reading file header", e);
+    }
+
+    // Reorder the columns according to the selectedColumns order
+    List<Integer> selectedColumnIndices = normalizedSelectedColumns.stream()
+            .map(headerColumns::indexOf)
+            .collect(Collectors.toList());
+
+    List<List<String>> reorderedRows = rows.stream()
+            .map(row -> selectedColumnIndices.stream()
+                    .map(row::get)
+                    .collect(Collectors.toList()))
+            .collect(Collectors.toList());
+
+    // Create a temporary CSV file with the reordered columns
+    Path tempFilePath;
+    try {
+        tempFilePath = Files.createTempFile("reordered-", ".csv");
+        try (BufferedWriter writer = Files.newBufferedWriter(tempFilePath, StandardCharsets.UTF_8)) {
+            // Write the header
+            writer.write(String.join(",", selectedColumns));
+            writer.newLine();
+            // Write the rows
+            for (List<String> reorderedRow : reorderedRows) {
+                writer.write(String.join(",", reorderedRow));
+                writer.newLine();
+            }
+        }
+    } catch (IOException e) {
+        logger.error("Error creating temporary file: {}", e.getMessage(), e);
+        throw new RuntimeException("Error creating temporary file", e);
+    }
+
+    // Upload the temporary file to GCS
+    String tempGcsFilePath = "gs://" + bucketName + "/" + tempFilePath.getFileName().toString();
+    try {
+        BlobId blobId = BlobId.of(bucketName, tempFilePath.getFileName().toString());
+        BlobInfo blobInfo = BlobInfo.newBuilder(blobId).build();
+        storage.create(blobInfo, Files.readAllBytes(tempFilePath));
+    } catch (IOException e) {
+        logger.error("Error uploading temporary file to GCS: {}", e.getMessage(), e);
+        throw new RuntimeException("Error uploading temporary file to GCS", e);
+    }
+
+    // Create the BigQuery table with the reordered columns
+    Schema schema = Schema.of(selectedColumns.stream()
+            .map(column -> Field.of(column, StandardSQLTypeName.STRING))
+            .collect(Collectors.toList()));
+
+    LoadJobConfiguration loadConfig = LoadJobConfiguration.builder(tableId, tempGcsFilePath)
+            .setSchema(schema)
+            .setSourceFormat(FormatOptions.csv())
+            .setSkipLeadingRows(1)
+            .build();
+
+    try {
+        JobId jobId = JobId.of(UUID.randomUUID().toString());
+        Job job = bigQuery.create(JobInfo.of(jobId, loadConfig));
+        job = job.waitFor();
+        if (job.isDone()) {
+            logger.info("Table created/replaced successfully with selected columns: {}.{}.{}", projectId,
+                    datasetName, tableName);
+        } else {
+            throw new RuntimeException("BigQuery create table job failed: " + job.getStatus().getError());
+        }
+    } catch (InterruptedException e) {
+        throw new RuntimeException("BigQuery job was interrupted", e);
+    } finally {
+        // Clean up the temporary file
+        try {
+            Files.deleteIfExists(tempFilePath);
+        } catch (IOException e) {
+            logger.warn("Failed to delete temporary file: {}", tempFilePath, e);
+        }
+    }
+}
