@@ -224,43 +224,64 @@ public class FileSystemStorageService implements StorageService {
         logger.info("GCS File Path: {}", gcsFilePath);
         logger.info("Project ID = {}", projectId);
 
- 
         TableId tableId = TableId.of(projectId, datasetName, tableName);
         logger.info("Table ID: = {}", tableId.toString());
-        // Log Selected Columns for Debugging
-        System.out.println("selected Columns: " + selectedColumns);
 
- 
-        // Define the schema based on selected columns
+        // Read the file and extract the header to get the actual column names
+        final List<String> headerColumns = new ArrayList<>();
+        List<List<String>> rows = new ArrayList<>();
+        
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(Files.newInputStream(Paths.get(gcsFilePath)), StandardCharsets.UTF_8))) {
+            // Read the header to get the column names
+            String headerLine = br.readLine();
+            if (headerLine != null) {
+                headerColumns.addAll(Arrays.asList(headerLine.split(",")));
+                logger.info("Detected columns: {}", headerColumns);
+            } else {
+                throw new RuntimeException("File is empty or doesn't contain a header.");
+            }
+
+            // Validate if selected columns exist in the header
+            if (!headerColumns.containsAll(selectedColumns)) {
+                throw new RuntimeException("Selected columns are not present in the file header.");
+            }
+
+            // Sample data (for example, the first 100 rows) to infer types
+            String line;
+            int rowCount = 0;
+            while ((line = br.readLine()) != null && rowCount < 100) {
+                rows.add(Arrays.asList(line.split(",")));
+                rowCount++;
+            }
+        } catch (IOException e) {
+            logger.error("Error reading file header: {}", e.getMessage(), e);
+            throw new RuntimeException("Error reading file header", e);
+        }
+
+        // Reorder the columns according to the selectedColumns order
+        List<Integer> selectedColumnIndices = selectedColumns.stream()
+                .map(headerColumns::indexOf)
+                .collect(Collectors.toList());
+
+        List<List<String>> reorderedRows = rows.stream()
+                .map(row -> selectedColumnIndices.stream()
+                        .map(row::get)
+                        .collect(Collectors.toList()))
+                .collect(Collectors.toList());
+
+        // Create the BigQuery table with the reordered columns
         Schema schema = Schema.of(selectedColumns.stream()
-                .map(column -> {
-                    System.out.println("Adding Columns to schema:" + column);
-                    return Field.of(column, StandardSQLTypeName.STRING);// Assume all columns are of type STRING
-                })
+                .map(column -> Field.of(column, StandardSQLTypeName.STRING))
                 .collect(Collectors.toList()));
-        // Log Schema
-        System.out.println("Schema:" + schema);
 
- 
-        LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, gcsFilePath)
+        LoadJobConfiguration loadConfig = LoadJobConfiguration.builder(tableId, gcsFilePath)
                 .setSchema(schema)
-                .setFormatOptions(FormatOptions.csv().toBuilder().setSkipLeadingRows(1).build())
-                .setWriteDisposition(JobInfo.WriteDisposition.WRITE_TRUNCATE)
-                .setIgnoreUnknownValues(true)
-                .setMaxBadRecords(5) // Allow up to max 5 records
+                .setSourceFormat(FormatOptions.csv())
+                .setSkipLeadingRows(1)
                 .build();
 
- 
         try {
-           
-            String jobName = "jobId_" + UUID.randomUUID().toString();
-            JobId jobId = JobId.newBuilder().setLocation("us").setJob(jobName).setProject(computeProjectId)
-                    .build();
-            logger.info("Compute Project ID : {}", computeProjectId);
-            // log for submitting job with selected columns
-            logger.info("Submitting Bigquery job for table creation with selected Columns: {}", tableName);
-
- 
+            JobId jobId = JobId.of(UUID.randomUUID().toString());
             Job job = bigQuery.create(JobInfo.of(jobId, loadConfig));
             job = job.waitFor();
             if (job.isDone()) {
@@ -269,8 +290,7 @@ public class FileSystemStorageService implements StorageService {
             } else {
                 throw new RuntimeException("BigQuery create table job failed: " + job.getStatus().getError());
             }
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new RuntimeException("BigQuery job was interrupted", e);
         }
     }
@@ -288,8 +308,7 @@ public class FileSystemStorageService implements StorageService {
                     .map(column -> column.replaceAll("[^\\p{Print}]",""))
                     .collect(Collectors.toList());
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             logger.error("Failed to extract columns from file:{}", e.getMessage(), e);
             throw new StorageException("Failed to extract columns from file", e);
         }
