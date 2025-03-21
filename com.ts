@@ -5,12 +5,12 @@ import { ManageserviceService } from 'app/services/manageservice.service';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
-  selector: 'app-porFolio-management',
-  templateUrl: './porFolio-management.component.html',
-  styleUrls: ['./porFolio-management.component.scss']
+  selector: 'app-portfolio-management',
+  templateUrl: './portfolio-management.component.html',
+  styleUrls: ['./portfolio-management.component.scss']
 })
-export class PorFolioManagementComponent implements OnInit, OnDestroy {
-  PorFolioManagementChart = [];
+export class PortfolioManagementComponent implements OnInit, OnDestroy {
+  PortfolioManagementChart = [];
   LegendHtml = [];
   infoDetail: any;
   subscribeData: any;
@@ -83,58 +83,68 @@ export class PorFolioManagementComponent implements OnInit, OnDestroy {
       if (data && data.length > 0) {
         this.Popoverdetails = data;
         this.LoadPopoverdetails();
-        this.getChart();
+        this.getPortfolioManagementChart();
       }
     });
   }
 
-  LoadPopoverdetails() {
-    this.curr_qtr_value = 0;
-    this.prv_qtr_value = 0;
-    this.qtr_var = 0;
-    this.curr_fyytd_value = 0;
-    this.prev_fyytd_value = 0;
-    this.three_yr_avg = 0;
+  getPortfolioManagementChart() {
+    this.LegendHtml = [];
+    this.dataseries = [];
+    this.xAxisCategory = ['People', 'Planet', 'Prosp.', 'Infrast.', 'Digital Trans'];
 
-    if (!this.Popoverdetails || this.Popoverdetails.length === 0) {
-      console.error('Popoverdetails is empty or undefined');
-      return;
-    }
+    const curryr = this.Popoverdetails.map((y: any) => y.curr_fyytd_value || 0);
+    const prevyr = this.Popoverdetails.map((y: any) => y.prev_fyytd_value || 0);
 
-    const ReportDate = this.Popoverdetails[0]?.report_date;
-    if (ReportDate) {
-      const Years = ReportDate.split('-');
-      const FY = Years[0].substring(2);
+    this.dataseries = [
+      {
+        name: 'FY24',
+        data: curryr,
+        color: '#66C4CA',
+        pointWidth: 15,
+        borderRadius: 3,
+        dataLabels: {
+          enabled: true,
+          formatter: function () { return this.y; }
+        },
+        tooltip: { pointFormat: '{series.name}: <b>{point.y:,.1f}B</b>' }
+      },
+      {
+        name: 'FY23',
+        data: prevyr,
+        color: '#009CA7',
+        pointWidth: 15,
+        borderRadius: 3,
+        dataLabels: {
+          enabled: true,
+          formatter: function () { return this.y; }
+        },
+        tooltip: { pointFormat: '{series.name}: <b>{point.y:,.1f}B</b>' }
+      }
+    ];
 
-      this.Popoverdetails.forEach((y, index) => {
-        if (y.curr_fyqtr_value) {
-          this.curr_qtr_value += parseFloat(y.curr_fyqtr_value);
-        }
-        if (y.prev_fyqtr_value) {
-          this.prv_qtr_value += parseFloat(y.prev_fyqtr_value);
-        }
-        if (y.curr_fyytd_value) {
-          this.curr_fyytd_value += parseFloat(y.curr_fyytd_value);
-        }
-        if (y.prev_fyytd_value) {
-          this.prev_fyytd_value += parseFloat(y.prev_fyytd_value);
-        }
-        if (y.prev_three_fy_avg_value) {
-          this.three_yr_avg += parseFloat(y.prev_three_fy_avg_value);
-        }
-      });
+    const chartWidth = this.cartboxchartsec5on.nativeElement.offsetWidth;
+    const ChartOptions = {
+      chartTitle: 'Portfolio Management',
+      chartWidth: chartWidth,
+      chartHeight: 210,
+      xAxisCategory: this.xAxisCategory,
+      dataseries: this.dataseries,
+      legendVisible: false,
+      xAxisTitle: '',
+      xAxisVisible: true,
+      yAxisVisible: true,
+      dataLabelEnable: true,
+      yAxisTitle: 'Amount ($B)'
+    };
 
-      this.qtr_var = this.prv_qtr_value === 0 ? 0 : ((this.curr_qtr_value - this.prv_qtr_value) / this.prv_qtr_value * 100).toFixed(1);
-      this.fyytd_var = this.prev_fyytd_value === 0 ? 0 : ((this.curr_fyytd_value - this.prev_fyytd_value) / this.prev_fyytd_value * 100).toFixed(1);
-      this.varience = this.qtr_var;
-    } else {
-      console.error('ReportDate is null or undefined');
-    }
+    this.LegendHtml = this.dataseries;
+    this.PortfolioManagementChart = this.highChartsService.GetColumnChart(ChartOptions);
   }
 
   @HostListener('window:resize', ['$event'])
   onResize(event: Event) {
-    this.getChart();
+    this.getPortfolioManagementChart();
   }
 
   ngOnDestroy(): void {
